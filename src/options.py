@@ -47,7 +47,7 @@ def args_parser():
                         of dataset")
     parser.add_argument('--num_classes', type=int, default=10, help="number \
                         of classes")
-    parser.add_argument('--gpu', default=None, help="To use cuda, set \
+    parser.add_argument('--gpu', default=1, help="To use cuda, set \
                         to a specific GPU ID. Default set to use CPU.")
     parser.add_argument('--optimizer', type=str, default='sgd', help="type \
                         of optimizer")

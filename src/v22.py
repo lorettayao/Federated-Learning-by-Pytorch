@@ -23,7 +23,9 @@ if __name__ == '__main__':
     args = args_parser()
     exp_details(args)
 
-    device = 'cpu'
+    os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
+    device = 'cuda' if (args.gpu and torch.cuda.is_available()) else 'cpu'
+    # device = 'cpu'
 
     # load dataset and user groups
     train_dataset, test_dataset, user_groups = get_dataset(args)
@@ -69,15 +71,22 @@ if __name__ == '__main__':
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
 
         for idx in idxs_users:
+            print("idx is : ",idx)
+            # print("user_groups[idx]: ",user_groups[idx])
+            
+            # idxs_flat = np.ravel(user_groups[idx])
+            
+            # print("idxs_flat : ",idxs_flat)
+            # print(user_groups[idx].shape)
             local_model = LocalUpdate(args=args, dataset=train_dataset,
                                       idxs=user_groups[idx], logger=logger)
-            print("idx is : ",idx)
-            print("user_groups[idx]: ",user_groups[idx])
-
+           
+            
             w, loss = local_model.update_weights(
                 model=copy.deepcopy(global_model), global_round=epoch)
             local_weights.append(copy.deepcopy(w))
             local_losses.append(copy.deepcopy(loss))
+        
 
         # update global weights
         global_weights = average_weights(local_weights)
@@ -87,6 +96,7 @@ if __name__ == '__main__':
 
         loss_avg = sum(local_losses) / len(local_losses)
         train_loss.append(loss_avg)
+        # print("global_weights: ", global_weights)
 
         # Calculate avg training accuracy over all users at every epoch
         list_acc, list_loss = [], []

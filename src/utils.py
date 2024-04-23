@@ -24,25 +24,92 @@ def create_user_groups(X_train, num_users):
         start_idx = i * num_samples_per_user
         end_idx = (i + 1) * num_samples_per_user
         
-        user_data = X_train[start_idx:end_idx]
+        # user_data = X_train[start_idx:end_idx]
+        user_data = [i for i in range(start_idx, end_idx)]
         user_groups.append(user_data)
     
     return user_groups
+# fix this it should return [[...],[...],[...],[...],]
+
+
+# def ts_array_create(dirname, time_seq):
+#     features = ['LTE_HO', 'MN_HO',  'SCG_RLF',
+#                 'num_of_neis', 'RSRP', 'RSRQ', 'RSRP1', 'RSRQ1', 'nr-RSRP', 'nr-RSRQ', 'nr-RSRP1', 'nr-RSRQ1']
+#     target = ['LTE_HO', 'MN_HO']
+#     split_time = []
+#     for file_name in os.listdir(dirname):
+#         file_path = os.path.join(dirname, file_name)
+#         df = pd.read_csv(file_path)
+        
+#         if not set(features).issubset(df.columns):
+#             print(f"Skipping {file_name} because it doesn't contain all the required features.")
+#             continue
+      
+#         if 'Timestamp' in df.columns:
+#             del df['Timestamp']
+
+#         X = df[features]
+#         Y = df[target]
+
+#         Xt_list = []
+
+#         for j in range(time_seq):
+#             X_t = X.shift(periods=-j)
+#             Xt_list.append(X_t)
+
+#         X_ts = np.array(Xt_list)
+#         X_ts = np.transpose(X_ts, (1, 0, 2))
+#         X_ts = X_ts[:-(time_seq), :, :]
+#         X_ts = X_ts.reshape(-1, 40)
+
+#         Y = Y.to_numpy()
+#         Y = [1 if sum(y) > 0 else 0 for y in Y]
+
+#         YY = []
+
+#         for j in range(time_seq, len(Y)):
+#             count = 0
+#             for k in range(j, len(Y)):
+#                 count += 1
+#                 if Y[k] != 0:
+#                     break
+#             YY.append(count)
+
+#         YY = np.array(YY)
+
+#         split_time.append(len(X_ts))
+#         i=0
+#         if i == 0:
+#             X_final = X_ts
+#             Y_final = YY
+#             i=1
+#         else:
+#             X_final = np.concatenate((X_final, X_ts), axis=0)
+#             Y_final = np.concatenate((Y_final, YY), axis=0)
+#     split_time = [(sum(split_time[:i]), sum(split_time[:i])+x)
+#                   for i, x in enumerate(split_time)]
+
+#     return X_final, Y_final
 
 
 def ts_array_create(dirname, time_seq):
-    features = ['LTE_HO', 'MN_HO',  'SCG_RLF',
+    features = ['LTE_HO', 'MN_HO', 'SCG_RLF',
                 'num_of_neis', 'RSRP', 'RSRQ', 'RSRP1', 'RSRQ1', 'nr-RSRP', 'nr-RSRQ', 'nr-RSRP1', 'nr-RSRQ1']
     target = ['LTE_HO', 'MN_HO']
-    split_time = []
+    X_final, Y_final = [], []
+
     for file_name in os.listdir(dirname):
         file_path = os.path.join(dirname, file_name)
-        df = pd.read_csv(file_path)
-        
+        try:
+            df = pd.read_csv(file_path)
+        except Exception as e:
+            print(f"Error reading {file_name}: {e}")
+            continue
+
         if not set(features).issubset(df.columns):
             print(f"Skipping {file_name} because it doesn't contain all the required features.")
             continue
-      
+
         if 'Timestamp' in df.columns:
             del df['Timestamp']
 
@@ -50,45 +117,37 @@ def ts_array_create(dirname, time_seq):
         Y = df[target]
 
         Xt_list = []
+        Yt_list = []
 
-        for j in range(time_seq):
-            X_t = X.shift(periods=-j)
-            Xt_list.append(X_t)
+        for i in range(time_seq):
+            X_t = X.shift(periods=-i)
+            Xt_list.append(X_t.to_numpy())
 
-        X_ts = np.array(Xt_list)
-        X_ts = np.transpose(X_ts, (1, 0, 2))
-        X_ts = X_ts[:-(time_seq), :, :]
-        X_ts = X_ts.reshape(-1, 40)
+        Xt_list = np.stack(Xt_list, axis=1)
+        Xt_list = Xt_list[:-time_seq]  # Adjust to match the size of Y
 
-        Y = Y.to_numpy()
-        Y = [1 if sum(y) > 0 else 0 for y in Y]
+        for i in range(time_seq, len(Y)):
+            Y_window = Y.iloc[i-time_seq:i]  # Select target values for the window
+            Y_combined = Y_window.any(axis=1).astype(int)  # Combine targets into one value
+            Yt_list.append(Y_combined.to_numpy())
 
-        YY = []
+        Yt_list = np.array(Yt_list)
 
-        for j in range(time_seq, len(Y)):
-            count = 0
-            for k in range(j, len(Y)):
-                count += 1
-                if Y[k] != 0:
-                    break
-            YY.append(count)
+        X_final.append(Xt_list)
+        Y_final.append(Yt_list)
 
-        YY = np.array(YY)
+    X_final = np.concatenate(X_final, axis=0)
+    Y_final = np.concatenate(Y_final, axis=0)
+    
+    # # Reshape X_final to remove the middle dimension
+    # X_final = np.reshape(X_final, (X_final.shape[0], -1))
 
-        split_time.append(len(X_ts))
-        i=0
-        if i == 0:
-            X_final = X_ts
-            Y_final = YY
-            i=1
-        else:
-            X_final = np.concatenate((X_final, X_ts), axis=0)
-            Y_final = np.concatenate((Y_final, YY), axis=0)
-    split_time = [(sum(split_time[:i]), sum(split_time[:i])+x)
-                  for i, x in enumerate(split_time)]
+    # # Reshape Y_final to remove the middle dimension
+    # Y_final = np.reshape(Y_final, (Y_final.shape[0],))
 
     return X_final, Y_final
-    
+
+
 
 def get_dataset(args):
     """ Returns train and test datasets and a user group which is a dict where
@@ -101,29 +160,37 @@ def get_dataset(args):
         dirlist = os.listdir(dirname)
        
         X, y = ts_array_create(dirname,time_seq=20)
+      
+        
 
         # Split data into train and test sets
         # X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
         X_train, X_test = train_test_split(X, test_size=0.2, random_state=42)
-
+        print("raw x size : ",X_train.shape)
+          
         # Select corresponding targets (y) for train and test sets
-        y_train = y[:len(X_train)//6]  # Assuming y is a list or numpy array
-        y_test = y[len(X_train)//6:]
+        y_train = y[:len(X_train)]  # Assuming y is a list or numpy array
+        y_test = y[len(X_train):]
 
         # Convert data to PyTorch Dataset objects
         # train_dataset = CustomDataset(X_train, y_train)
         # test_dataset = CustomDataset(X_test, y_test)
         # Convert numpy arrays to PyTorch tensors
-        X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-        X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-        y_train_tensor = torch.tensor(y_train, dtype=torch.long)  # Assuming y_train contains labels
-        y_test_tensor = torch.tensor(y_test, dtype=torch.long)    # Assuming y_test contains labels
+        X_train_tensor = torch.tensor(X_train, dtype=torch.float32).reshape(-1, X_train.shape[-1])
+        X_test_tensor = torch.tensor(X_test, dtype=torch.float32).reshape(-1, X_test.shape[-1])
+        y_train_tensor = torch.tensor(y_train, dtype=torch.long).reshape(-1)  # Assuming y_train contains labels
+        y_test_tensor = torch.tensor(y_test, dtype=torch.long).reshape(-1)
 
+
+  
         # Create PyTorch Dataset objects using TensorDataset
-        train_dataset = TensorDataset(*X_train_tensor)
-        test_dataset = TensorDataset(*X_test_tensor)
+        print("size of x_train_tensor: ", X_train_tensor.size())
+        print("size of y_train_tensor: ", y_train_tensor.size())
 
-        user_groups = create_user_groups(X_train, args.num_users)
+        train_dataset = TensorDataset(X_train_tensor,y_train_tensor)
+        test_dataset = TensorDataset(X_test_tensor,y_test_tensor)
+
+        user_groups = create_user_groups(X_train_tensor, args.num_users)
 
 
         # return train_dataset, test_dataset, user_groups

@@ -5,14 +5,17 @@
 import torch
 from torch import nn
 from torch.utils.data import DataLoader, Dataset
+import numpy as np
 
 
 class DatasetSplit(Dataset):
     """An abstract Dataset class wrapped around Pytorch Dataset class.
     """
-
+    # self.dataset
+    
     def __init__(self, dataset, idxs):
         self.dataset = dataset
+        self.idxs = [int(i) for i in idxs] if isinstance(idxs, (list, np.ndarray)) else [int(idxs)]
         self.idxs = [int(i) for i in idxs]
 
     def __len__(self):

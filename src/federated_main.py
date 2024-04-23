@@ -82,6 +82,9 @@ if __name__ == '__main__':
         idxs_users = np.random.choice(range(args.num_users), m, replace=False)
 
         for idx in idxs_users:
+            print(type(user_groups), list(user_groups.keys()))
+            print(user_groups[idx], type(user_groups[idx]))
+            raise
             local_model = LocalUpdate(args=args, dataset=train_dataset,
                                       idxs=user_groups[idx], logger=logger)
             w, loss = local_model.update_weights(
